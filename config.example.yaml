@@ -1,0 +1,54 @@
+# Example configuration for nearby-fire-alert.
+#
+# Precedence (lowest -> highest): built-in defaults < this file < environment
+# variables < secret files (<NAME>_FILE). Every field here can also be set via
+# env vars or a secret file; see .env.example and README.
+#
+# Copy to config.yaml and edit, or configure everything via environment
+# variables (preferred for container deployments).
+
+geofence:
+  home_lat: 39.5          # example only: geographic center of CONUS; set your real home via env/secret
+  home_lon: -98.35
+  radius_miles: 5        # alert within this radius
+  buffer_miles: 25       # watch (log only) within this buffer
+
+sources:
+  firms:
+    enabled: true
+    map_key: ""          # prefer FIRMS_MAP_KEY or FIRMS_MAP_KEY_FILE (never inline)
+    sensors: [VIIRS_SNPP, VIIRS_NOAA20, VIIRS_NOAA21]   # optional MODIS
+    interval_seconds: 300
+    min_confidence: 75   # 0-100; hotspot below this is filtered
+    # Optional overrides:
+    # api_url: "https://firms.modaps.eosdis.nasa.gov/api/area/csv"
+    # area: "-125,24,-66,50"   # WestLon,SouthLat,EastLon,NorthLat (minLon,minLat,maxLon,maxLat)
+    # days: 1
+  nifc:
+    enabled: true
+    interval_seconds: 900
+    # WFIGS Current Interagency Fire Perimeters (public GeoJSON feature service)
+    # perimeter_url: "https://services3.arcgis.com/T4QMspbfLg3qTGWY/arcgis/rest/services/WFIGS_Interagency_Perimeters_Current/FeatureServer/0/query?where=1%3D1&outFields=*&f=geojson&outSR=4326"
+  ngfs:
+    enabled: false        # stub; intended AWS S3 / GOES consumer (not implemented)
+
+openclaw:
+  hook_url: "https://gateway:18789/hooks/fire"
+  hook_token: ""          # prefer OPENCLAW_HOOK_TOKEN or OPENCLAW_HOOK_TOKEN_FILE
+  agent_id: main
+  channel: signal
+  to: "+15550100400"  # example Signal recipient (555 number); set real value via env/secret
+  account_id: ""
+  timeout_seconds: 15
+
+db:
+  driver: sqlite          # sqlite | postgres
+  dsn: ""                 # postgres URL; ignored when driver=sqlite
+  sqlite_path: "./state.db"
+
+runtime:
+  event_ttl_hours: 24
+  log_level: info
+  escalation_factor: 0.20            # re-alert on >=20% confidence/FRP rise
+  escalation_persist_hours: 24       # re-alert if un-resolved past this
+  escalation_cooldown_minutes: 60    # min gap between persistence re-alerts

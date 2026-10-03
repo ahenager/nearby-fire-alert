@@ -1,0 +1,30 @@
+# git
+.git
+.gitignore
+
+# binaries / build output
+nearby-fire-alert
+bin/
+dist/
+
+# state and local data
+*.db
+*.sqlite
+*.sqlite3
+*.db-journal
+/data/
+
+# secrets and local env (never bake into image)
+.env
+config.yaml
+*.pem
+*.key
+
+# tests / coverage
+*.test
+*.out
+coverage.*
+
+# docs / examples that don't affect build
+README.md
+PLAN.md

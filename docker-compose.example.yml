@@ -1,0 +1,126 @@
+# Example docker-compose for nearby-fire-alert.
+#
+# Demonstrates:
+#   (a) env-driven configuration  (environment: with ${VAR} substitution)
+#   (b) secret-file mounts         (secrets: mapped to /run/secrets/<name>)
+#   (c) SQLite usage               (default `app` service, volume-backed)
+#   (c) Postgres usage             (`postgres` profile: app-postgres + postgres)
+#
+# Usage:
+#   cp .env.example .env   # then fill in secrets
+#   docker compose up app              # SQLite
+#   docker compose --profile postgres up app-postgres   # Postgres
+#
+# Create secret files (chmod 0600):
+#   ./secrets/firms_map_key
+#   ./secrets/openclaw_hook_token
+
+services:
+  # Default: SQLite store, env-driven config, secrets via *_FILE.
+  app:
+    build: .
+    image: nearby-fire-alert:latest
+    restart: unless-stopped
+    environment:
+      GEOFENCE_HOME_LAT: ${GEOFENCE_HOME_LAT:-35.0}
+      GEOFENCE_HOME_LON: ${GEOFENCE_HOME_LON:--97.0}
+      GEOFENCE_RADIUS_MILES: ${GEOFENCE_RADIUS_MILES:-5}
+      GEOFENCE_BUFFER_MILES: ${GEOFENCE_BUFFER_MILES:-25}
+
+      OPENCLAW_HOOK_URL: ${OPENCLAW_HOOK_URL:-https://gateway:18789/hooks/fire}
+      OPENCLAW_HOOK_TOKEN_FILE: /run/secrets/openclaw_hook_token
+      OPENCLAW_AGENT_ID: ${OPENCLAW_AGENT_ID:-main}
+      OPENCLAW_CHANNEL: ${OPENCLAW_CHANNEL:-signal}
+      OPENCLAW_TO: ${OPENCLAW_TO:-}
+      OPENCLAW_ACCOUNT_ID: ${OPENCLAW_ACCOUNT_ID:-}
+      OPENCLAW_TIMEOUT_SECONDS: ${OPENCLAW_TIMEOUT_SECONDS:-15}
+
+      DB_DRIVER: sqlite
+      DB_SQLITE_PATH: /data/state.db
+
+      RUNTIME_EVENT_TTL_HOURS: ${RUNTIME_EVENT_TTL_HOURS:-24}
+      RUNTIME_LOG_LEVEL: ${RUNTIME_LOG_LEVEL:-info}
+
+      FIRMS_ENABLED: "true"
+      FIRMS_MAP_KEY_FILE: /run/secrets/firms_map_key
+      FIRMS_SENSORS: ${FIRMS_SENSORS:-VIIRS_SNPP,VIIRS_NOAA20,VIIRS_NOAA21}
+      FIRMS_INTERVAL_SECONDS: ${FIRMS_INTERVAL_SECONDS:-300}
+      FIRMS_MIN_CONFIDENCE: ${FIRMS_MIN_CONFIDENCE:-75}
+
+      NIFC_ENABLED: "true"
+      NIFC_INTERVAL_SECONDS: ${NIFC_INTERVAL_SECONDS:-900}
+
+      NGFS_ENABLED: "false"
+    secrets:
+      - firms_map_key
+      - openclaw_hook_token
+    volumes:
+      - sqlite-data:/data
+
+  # Postgres variant: run with --profile postgres.
+  app-postgres:
+    image: nearby-fire-alert:latest
+    restart: unless-stopped
+    profiles: ["postgres"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      GEOFENCE_HOME_LAT: ${GEOFENCE_HOME_LAT:-35.0}
+      GEOFENCE_HOME_LON: ${GEOFENCE_HOME_LON:--97.0}
+      GEOFENCE_RADIUS_MILES: ${GEOFENCE_RADIUS_MILES:-5}
+      GEOFENCE_BUFFER_MILES: ${GEOFENCE_BUFFER_MILES:-25}
+
+      OPENCLAW_HOOK_URL: ${OPENCLAW_HOOK_URL:-https://gateway:18789/hooks/fire}
+      OPENCLAW_HOOK_TOKEN_FILE: /run/secrets/openclaw_hook_token
+      OPENCLAW_AGENT_ID: ${OPENCLAW_AGENT_ID:-main}
+      OPENCLAW_CHANNEL: ${OPENCLAW_CHANNEL:-signal}
+      OPENCLAW_TO: ${OPENCLAW_TO:-}
+      OPENCLAW_ACCOUNT_ID: ${OPENCLAW_ACCOUNT_ID:-}
+      OPENCLAW_TIMEOUT_SECONDS: ${OPENCLAW_TIMEOUT_SECONDS:-15}
+
+      DB_DRIVER: postgres
+      DB_DSN: postgres://fire:${POSTGRES_PASSWORD}@postgres:5432/fire?sslmode=disable
+
+      RUNTIME_EVENT_TTL_HOURS: ${RUNTIME_EVENT_TTL_HOURS:-24}
+      RUNTIME_LOG_LEVEL: ${RUNTIME_LOG_LEVEL:-info}
+
+      FIRMS_ENABLED: "true"
+      FIRMS_MAP_KEY_FILE: /run/secrets/firms_map_key
+      FIRMS_SENSORS: ${FIRMS_SENSORS:-VIIRS_SNPP,VIIRS_NOAA20,VIIRS_NOAA21}
+      FIRMS_INTERVAL_SECONDS: ${FIRMS_INTERVAL_SECONDS:-300}
+      FIRMS_MIN_CONFIDENCE: ${FIRMS_MIN_CONFIDENCE:-75}
+
+      NIFC_ENABLED: "true"
+      NIFC_INTERVAL_SECONDS: ${NIFC_INTERVAL_SECONDS:-900}
+
+      NGFS_ENABLED: "false"
+    secrets:
+      - firms_map_key
+      - openclaw_hook_token
+
+  postgres:
+    image: postgres:16-alpine
+    profiles: ["postgres"]
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: fire
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: fire
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fire -d fire"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+secrets:
+  firms_map_key:
+    file: ./secrets/firms_map_key
+  openclaw_hook_token:
+    file: ./secrets/openclaw_hook_token
+
+volumes:
+  sqlite-data:
+  pgdata:

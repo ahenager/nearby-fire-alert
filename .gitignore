@@ -1,0 +1,28 @@
+# binary
+/nearby-fire-alert
+/bin/
+/dist/
+
+# state / runtime
+*.db
+*.sqlite
+*.sqlite3
+*.db-journal
+/data/
+
+# secrets — never commit
+.env
+*.pem
+*.key
+
+# build
+*.test
+*.out
+coverage.*
+
+# editor/OS
+.DS_Store
+*.swp
+
+# internal planning doc (not for public repo)
+PLAN.md
